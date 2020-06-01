@@ -197,7 +197,7 @@ def _imshow3D_display_(image,**kwargs):
         plt.subplot(1,n_images,i+1)
         l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar="on"))
 
-    ax = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+    ax = fig.add_axes([0.2, 0.08, 0.6, 0.03])
     max_val=np.max([im.shape[0] for im in image])-1
 
     slidx = Slider(ax, 'slice', 0,max_val, valinit=max_val/2, valfmt='%d')
@@ -258,7 +258,7 @@ def _imshow3D_display_overlay_(image,alpha,**kwargs):
         #plt.subplot(1,n_images,i+1)
         l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title,alpha=alpha[i]))
 
-    ax = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+    ax = fig.add_axes([0.2, 0.08, 0.6, 0.03])
     max_val=np.max([im.shape[0] for im in image])-1
 
     slidx = Slider(ax, 'slice', 0,max_val, valinit=max_val/2, valfmt='%d')
