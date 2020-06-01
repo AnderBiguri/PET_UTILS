@@ -26,7 +26,7 @@ def imshow(image, limits=[], title='',colormap="viridis",extent=None,alpha=1,col
     return bitmap
 
 
-def dvf_show(dvf_arr,slice=None,mode="slices",colormap=None):
+def dvf_show(dvf_arr,axis=0,mode="components",colormap=None):
     """Display vector fields (tuned for displacement) with a colourbar
 
     
@@ -40,28 +40,37 @@ def dvf_show(dvf_arr,slice=None,mode="slices",colormap=None):
     Colourbar limits for "slice" are centered at zero with max(abs(minval),abs(maxval)) as upper and lower limits and [minval, maxval] for norm
 
     """
-    if slice is None:
-        slice = dvf_arr.shape[0]/2
+   
     if colormap is None:
-        if mode is "slices":
+        if mode is "components":
             colormap="RdBu"
         else:
             colormap="viridis"
     if len(dvf_arr.shape) is not 5:
         raise "dvf_arr does not have 5 dims"
-    if mode is "slices":
+    if mode is "components":
+        
+        dvf=[dvf_arr[:,:,:,0,0].squeeze(), dvf_arr[:,:,:,0,1].squeeze(), dvf_arr[:,:,:,0,2].squeeze()]
+        limits=[]
+        for i in range(3):
+            m=np.max(np.abs([np.nanmin(dvf[i]), np.nanmax(dvf[i])]))
+            limits.append([-m, m])
+        for i in range(3):
+            if axis==1:
+                dvf[i]=np.transpose(dvf[i],(1,0,2))
+            if axis==2:
+                dvf[i]=np.transpose(dvf[i],(2,0,1))
 
-        m=np.max(np.abs([np.nanmin(dvf_arr[slice,:,:,0,0]), np.nanmax(dvf_arr[slice,:,:,0,0])]))
-        plt.subplot(1,3,1)
-        imshow(dvf_arr[slice,:,:,0,0].squeeze(), [-m, m], 'x',colormap=colormap)
+        _imshow3D_display_(dvf,limits=limits,colormap=colormap)
+       
+        # plt.subplot(1,3,1)
+        # imshow(dvf_arr[slice,:,:,0,0].squeeze(), [-m, m], 'x',colormap=colormap)
 
-        m=np.max(np.abs([np.nanmin(dvf_arr[slice,:,:,0,1]), np.nanmax(dvf_arr[slice,:,:,0,1])]))
-        plt.subplot(1,3,2)
-        imshow(dvf_arr[slice,:,:,0,1].squeeze(), [-m, m], 'y',colormap=colormap)
+        # plt.subplot(1,3,2)
+        # imshow(dvf_arr[slice,:,:,0,1].squeeze(), [-m, m], 'y',colormap=colormap)
 
-        m=np.max(np.abs([np.nanmin(dvf_arr[slice,:,:,0,2]), np.nanmax(dvf_arr[slice,:,:,0,2])]))
-        plt.subplot(1,3,3)
-        imshow(dvf_arr[slice,:,:,0,2].squeeze(), [-m, m], 'z',colormap=colormap)
+        # plt.subplot(1,3,3)
+        # imshow(dvf_arr[slice,:,:,0,2].squeeze(), [-m, m], 'z',colormap=colormap)
 
     if mode is "norm":
         dvf_norm= np.linalg.norm(dvf_arr,axis=4).squeeze()

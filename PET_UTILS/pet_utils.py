@@ -19,6 +19,7 @@ def load_dicom_scan(path):
 def np_array_from_dicom_list(dcm_list):
     return np.stack([item.pixel_array for item in dcm_list],  axis=0)
 
+
 def remove_ct_background(ct_image):
     ct_image[ct_image<0]=0
     return ct_image
@@ -28,3 +29,4 @@ def extent_from_dicom(dcm_list):
 
 def sirf_reg_to_numpy(image):
     return np.transpose(np.flip(image,axis=2),(2,0,1))
+
