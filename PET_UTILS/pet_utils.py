@@ -28,5 +28,8 @@ def extent_from_dicom(dcm_list):
     return [0, len(dcm_list)*dcm_list[0].SliceThickness, 0, dcm_list[0].pixel_array.shape[0]*dcm_list[0].PixelSpacing[0], 0, dcm_list[0].pixel_array.shape[1]*dcm_list[0].PixelSpacing[1]]
 
 def sirf_reg_to_numpy(image):
-    return np.transpose(np.flip(image,axis=2),(2,0,1))
+    if image.ndim is 3:
+        return np.transpose(np.flip(image,axis=2),(2,0,1))
+    elif image.ndim is 5:
+        return np.transpose(np.flip(image,axis=2),(2,0,1,3,4))
 

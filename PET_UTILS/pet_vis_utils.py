@@ -26,7 +26,7 @@ def imshow(image, limits=[], title='',colormap="viridis",extent=None,alpha=1,col
     return bitmap
 
 
-def dvf_show(dvf_arr,axis=0,mode="components",colormap=None):
+def dvf_show(dvf_arr,axis=0,mode="components",colormap=None,title=None):
     """Display vector fields (tuned for displacement) with a colourbar
 
     
@@ -48,8 +48,17 @@ def dvf_show(dvf_arr,axis=0,mode="components",colormap=None):
             colormap="viridis"
     if len(dvf_arr.shape) is not 5:
         raise "dvf_arr does not have 5 dims"
+
+    
+    if axis==1:
+        dvf_arr=np.transpose(dvf_arr,(1,0,2,3,4))
+    if axis==2:
+        dvf_arr=np.transpose(dvf_arr,(2,1,0,3,4))
+
+
     if mode is "components":
-        
+        if title is None:
+            title=["x","y","z"]
         dvf=[dvf_arr[:,:,:,0,0].squeeze(), dvf_arr[:,:,:,0,1].squeeze(), dvf_arr[:,:,:,0,2].squeeze()]
         limits=[]
         for i in range(3):
@@ -61,20 +70,11 @@ def dvf_show(dvf_arr,axis=0,mode="components",colormap=None):
             if axis==2:
                 dvf[i]=np.transpose(dvf[i],(2,0,1))
 
-        _imshow3D_display_(dvf,limits=limits,colormap=colormap)
+        _imshow3D_display_(dvf,limits=limits,colormap=colormap,title=title)
        
-        # plt.subplot(1,3,1)
-        # imshow(dvf_arr[slice,:,:,0,0].squeeze(), [-m, m], 'x',colormap=colormap)
-
-        # plt.subplot(1,3,2)
-        # imshow(dvf_arr[slice,:,:,0,1].squeeze(), [-m, m], 'y',colormap=colormap)
-
-        # plt.subplot(1,3,3)
-        # imshow(dvf_arr[slice,:,:,0,2].squeeze(), [-m, m], 'z',colormap=colormap)
-
     if mode is "norm":
         dvf_norm= np.linalg.norm(dvf_arr,axis=4).squeeze()
-        imshow(dvf_norm[slice,:,:], [], 'Absolute value',colormap=colormap)
+        _imshow3D_display_([dvf_norm],title='Norm',colormap=colormap)
 
 
 def MIP(image, axis=0):
@@ -172,9 +172,9 @@ def _imshow3D_display_(image,**kwargs):
     
     if "limits" in kwargs:
         limits=kwargs.pop("limits")
-        if len(limits[0])==1: # if the first instance is just a number, then the input has only been a list and not a nested list
+        if isinstance(limits[0],int): # if the first instance is just a number, then the input has only been a list and not a nested list
             limits=[limits]
-            for i in range(len(image))-1:
+            for i in range(len(image)-1):
                 limits.append(limits[0])
         assert len(limits)==len(image), "The list of limits has to be the same length as list of images, or 1"
     else:
@@ -184,7 +184,7 @@ def _imshow3D_display_(image,**kwargs):
         title=kwargs.pop("title")
         if not isinstance(title,list): 
             title=[title]
-            for i in range(len(image))-1:
+            for i in range(len(image)-1):
                 title.append(title[0])
         assert len(title)==len(image), "The list of title has to be the same length as list of images, or 1"
     else:
