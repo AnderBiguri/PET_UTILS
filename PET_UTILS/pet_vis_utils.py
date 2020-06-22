@@ -254,7 +254,7 @@ def _imanimate_(image,**kwargs):
     fig=plt.gcf()
     #maximize window
     mng = plt.get_current_fig_manager()
-    mng.frame.Maximize(True)
+    mng.resize(*mng.window.maxsize())
     max_val=np.max([im.shape[0] for im in image])-1
     
     def update(val):
@@ -279,7 +279,8 @@ def _imanimate_(image,**kwargs):
     ani = FuncAnimation(fig, update, frames=max_val)
     _imanimate_._ani=ani
     if filename:
-        os.mkdir(os.path.abspath(os.getcwd())+'/animation/')
+        if not os.path.isdir(os.path.abspath(os.getcwd())+'/animation/'):
+            os.mkdir(os.path.abspath(os.getcwd())+'/animation/')
         ani.save(os.path.abspath(os.getcwd())+'/animation/'+filename, writer='imagemagick', fps=2)
  
 
