@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 import dicom
 import pet_utils as petut
-
+from matplotlib.animation import FuncAnimation
+import time
+import os
 def imshow(image, limits=[], title='',colormap="viridis",extent=None,alpha=1,colorbar="off"):
     """Display an image with a colourbar, returning the plot handle. 
     
@@ -58,17 +60,13 @@ def dvf_show(dvf_arr,axis=0,mode="components",colormap=None,title=None):
 
     if mode is "components":
         if title is None:
-            title=["x","y","z"]
+            if axis==1:
+                title=["x (ANT-POS)","y (Left-Right)","z (CRA-CAU)"]
         dvf=[dvf_arr[:,:,:,0,0].squeeze(), dvf_arr[:,:,:,0,1].squeeze(), dvf_arr[:,:,:,0,2].squeeze()]
         limits=[]
         for i in range(3):
             m=np.max(np.abs([np.nanmin(dvf[i]), np.nanmax(dvf[i])]))
             limits.append([-m, m])
-        for i in range(3):
-            if axis==1:
-                dvf[i]=np.transpose(dvf[i],(1,0,2))
-            if axis==2:
-                dvf[i]=np.transpose(dvf[i],(2,0,1))
 
         _imshow3D_display_(dvf,limits=limits,colormap=colormap,title=title)
        
@@ -126,7 +124,14 @@ def imshow3D(image,axis=0,**kwargs):
         if axis==2:
             image[i]=np.transpose(image[i],(2,0,1))
 
-    _imshow3D_display_(image,**kwargs)
+    if "animate" not in kwargs:
+        kwargs["animate"]=False
+
+
+    if kwargs["animate"] is False:
+        _imshow3D_display_(image,**kwargs)
+    else:
+        _imanimate_(image,**kwargs)
 
 def _get_extent_(image,axis,extent):
     '''
@@ -159,43 +164,7 @@ def _imshow3D_display_(image,**kwargs):
     this is the one that actually displays
     image must be a list of np.arrays
     '''
-    # Unpack kwargs (in case there are various)
-    if "colormap" in kwargs:
-        colormap=kwargs.pop("colormap")
-        if not isinstance(colormap,list):
-            colormap=[colormap]
-            for i in range(len(image)-1):
-                colormap.append(colormap[0])
-        assert len(colormap)==len(image), "The list of colormaps has to be the same length as list of images, or 1"
-    else:
-        colormap=[None]*len(image)
-    
-    if "limits" in kwargs:
-        limits=kwargs.pop("limits")
-        if isinstance(limits[0],int): # if the first instance is just a number, then the input has only been a list and not a nested list
-            limits=[limits]
-            for i in range(len(image)-1):
-                limits.append(limits[0])
-        assert len(limits)==len(image), "The list of limits has to be the same length as list of images, or 1"
-    else:
-        limits=[[]]*len(image)
-
-    if "title" in kwargs:
-        title=kwargs.pop("title")
-        if not isinstance(title,list): 
-            title=[title]
-            for i in range(len(image)-1):
-                title.append(title[0])
-        assert len(title)==len(image), "The list of title has to be the same length as list of images, or 1"
-    else:
-        title=[""]*len(image)
-
-
-    if "extent" in kwargs:
-        extent=kwargs.pop("extent")
-    else:
-        extent=None
-
+    colormap, limits, title, extent, colorbar, _ = _unpack_disp_kwargs_(image,**kwargs)
     # Start the plotting
     n_images=len(image)
 
@@ -204,7 +173,7 @@ def _imshow3D_display_(image,**kwargs):
     l=[]
     for i in range(n_images):
         plt.subplot(1,n_images,i+1)
-        l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar="on"))
+        l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar))
 
     ax = fig.add_axes([0.2, 0.08, 0.6, 0.03])
     max_val=np.max([im.shape[0] for im in image])-1
@@ -224,35 +193,7 @@ def _imshow3D_display_overlay_(image,alpha,**kwargs):
     image must be a len(2) list of np.arrays
     alpha must be a len(2) list of float
     '''
-    # Unpack kwargs (in case there are various)
-    if "colormap" in kwargs:
-        colormap=kwargs.pop("colormap")
-        if not isinstance(colormap,list):
-            colormap=[colormap]
-            for i in range(len(image)-1):
-                colormap.append(colormap[0])
-        assert len(colormap)==len(image), "The list of colormaps has to be the same length as list of images, or 1"
-    else:
-        colormap=[None]*len(image)
-    
-    if "limits" in kwargs:
-        limits=kwargs.pop("limits")
-        if len(limits[0])==1: # if the first instance is just a number, then the input has only been a list and not a nested list
-            limits=[limits]
-            for i in range(len(image))-1:
-                limits.append(limits[0])
-        assert len(limits)==len(image), "The list of limits has to be the same length as list of images, or 1"
-    else:
-        limits=[[]]*len(image)
-
-    if "title" in kwargs:
-        title=kwargs.pop("title")
-        assert isinstance(title,str), "title has to be a string"
-
-    if "extent" in kwargs:
-        extent=kwargs.pop("extent")
-    else:
-        extent=None
+    colormap, limits, title, extent, _, _ = _unpack_disp_kwargs_(image,**kwargs)
 
     assert isinstance(alpha,list) and len(alpha)==2, "alpha has to be a length 2 list"
     
@@ -299,3 +240,95 @@ def imshow3d_petct(ct,pet,axis=0,alpha=[1,0.6],colormap=['gray','afmhot'],**kwar
 
     _imshow3D_display_overlay_(image,alpha=alpha,colormap=colormap,**kwargs)
 
+
+
+
+def _imanimate_(image,**kwargs):
+    '''
+    this is the one that actually displays and produces the animation
+    image must be a list of np.arrays
+    '''
+    
+    colormap, limits, title, extent, colorbar, filename = _unpack_disp_kwargs_(image,**kwargs)
+    # Start the plotting
+    fig=plt.gcf()
+    #maximize window
+    mng = plt.get_current_fig_manager()
+    mng.frame.Maximize(True)
+    max_val=np.max([im.shape[0] for im in image])-1
+    
+    def update(val):
+        n_images=len(image)
+        fig=plt.gcf()
+        max_val=np.max([im.shape[0] for im in image])-1
+        # initaliation
+        if val is 0:
+            fig.subplots_adjust(left=0.25, bottom=0.25)
+            l=[]
+            ax=[]
+            for i in range(n_images):
+                ax.append(plt.subplot(1,n_images,i+1))
+                l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar))
+            update._l=l
+            update._ax=ax
+        # normal plotting
+        for i in range(n_images):
+            update._l[i].set_data(image[i][val])
+            update._ax[i].set_title(title[i]+ " "+ str(val+1)+"/"+str(max_val))
+        fig.canvas.draw_idle()
+    ani = FuncAnimation(fig, update, frames=max_val)
+    _imanimate_._ani=ani
+    if filename:
+        os.mkdir(os.path.abspath(os.getcwd())+'/animation/')
+        ani.save(os.path.abspath(os.getcwd())+'/animation/'+filename, writer='imagemagick', fps=2)
+ 
+
+def _unpack_disp_kwargs_(image,**kwargs):
+    # Unpack kwargs (in case there are various)
+    if "colormap" in kwargs:
+        colormap=kwargs.pop("colormap")
+        if not isinstance(colormap,list):
+            colormap=[colormap]
+            for _ in range(len(image)-1):
+                colormap.append(colormap[0])
+        assert len(colormap)==len(image), "The list of colormaps has to be the same length as list of images, or 1"
+    else:
+        colormap=[None]*len(image)
+    
+    if "limits" in kwargs:
+        limits=kwargs.pop("limits")
+        if isinstance(limits[0],int): # if the first instance is just a number, then the input has only been a list and not a nested list
+            limits=[limits]
+            for _ in range(len(image)-1):
+                limits.append(limits[0])
+        assert len(limits)==len(image), "The list of limits has to be the same length as list of images, or 1"
+    else:
+        limits=[[]]*len(image)
+
+    if "title" in kwargs:
+        title=kwargs.pop("title")
+        if not isinstance(title,list): 
+            title=[title]
+            for _ in range(len(image)-1):
+                title.append(title[0])
+        assert len(title)==len(image), "The list of title has to be the same length as list of images, or 1"
+    else:
+        title=[""]*len(image)
+
+    if "extent" in kwargs:
+        extent=kwargs.pop("extent")
+    else:
+        extent=None
+
+    if "colorbar" in kwargs:
+        colorbar=kwargs.pop("colorbar")
+    else:
+        colorbar="on"
+
+    if "filename" in kwargs:
+        filename=kwargs.pop("filename")
+    else:
+        filename=None
+
+    return colormap, limits, title, extent, colorbar,filename
+    
