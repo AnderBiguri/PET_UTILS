@@ -28,7 +28,7 @@ def imshow(image, limits=[], title='',colormap="viridis",extent=None,alpha=1,col
     return bitmap
 
 
-def dvf_show(dvf_arr,axis=0,mode="components",colormap=None,title=None):
+def dvf_show(dvf_arr,axis=0,mode="components",colormap=None,title=None,limits=None):
     """Display vector fields (tuned for displacement) with a colourbar
 
     
@@ -63,16 +63,19 @@ def dvf_show(dvf_arr,axis=0,mode="components",colormap=None,title=None):
             if axis==1:
                 title=["x (ANT-POS)","y (Left-Right)","z (CRA-CAU)"]
         dvf=[dvf_arr[:,:,:,0,0].squeeze(), dvf_arr[:,:,:,0,1].squeeze(), dvf_arr[:,:,:,0,2].squeeze()]
-        limits=[]
-        for i in range(3):
-            m=np.max(np.abs([np.nanmin(dvf[i]), np.nanmax(dvf[i])]))
-            limits.append([-m, m])
+        if limits is None:
+            limits=[]
+            for i in range(3):
+                m=np.max(np.abs([np.nanmin(dvf[i]), np.nanmax(dvf[i])]))
+                limits.append([-m, m])
 
         _imshow3D_display_(dvf,limits=limits,colormap=colormap,title=title)
        
     if mode is "norm":
+        if title is None:
+            title="Norm"
         dvf_norm= np.linalg.norm(dvf_arr,axis=4).squeeze()
-        _imshow3D_display_([dvf_norm],title='Norm',colormap=colormap)
+        _imshow3D_display_([dvf_norm],title=title,colormap=colormap,limits=limits)
 
 
 def MIP(image, axis=0):
@@ -173,7 +176,7 @@ def _imshow3D_display_(image,**kwargs):
     l=[]
     for i in range(n_images):
         plt.subplot(1,n_images,i+1)
-        l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar))
+        l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar[i]))
 
     ax = fig.add_axes([0.2, 0.08, 0.6, 0.03])
     max_val=np.max([im.shape[0] for im in image])-1
@@ -268,20 +271,20 @@ def _imanimate_(image,**kwargs):
             ax=[]
             for i in range(n_images):
                 ax.append(plt.subplot(1,n_images,i+1))
-                l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar))
+                l.append(imshow(image[i][image[i].shape[0]/2],colormap=colormap[i],limits=limits[i],extent=extent,title=title[i],colorbar=colorbar[i]))
             update._l=l
             update._ax=ax
         # normal plotting
         for i in range(n_images):
             update._l[i].set_data(image[i][val])
-            update._ax[i].set_title(title[i]+ " "+ str(val+1)+"/"+str(max_val))
+            update._ax[i].set_title(title[i]+ " "+ str(val+1)+"/"+str(max_val+1))
         fig.canvas.draw_idle()
-    ani = FuncAnimation(fig, update, frames=max_val)
+    ani = FuncAnimation(fig, update, frames=max_val+1)
     _imanimate_._ani=ani
     if filename:
         if not os.path.isdir(os.path.abspath(os.getcwd())+'/animation/'):
             os.mkdir(os.path.abspath(os.getcwd())+'/animation/')
-        ani.save(os.path.abspath(os.getcwd())+'/animation/'+filename, writer='imagemagick', fps=2)
+        ani.save(os.path.abspath(os.getcwd())+'/animation/'+filename, writer='imagemagick', fps=1)
  
 
 def _unpack_disp_kwargs_(image,**kwargs):
@@ -323,9 +326,14 @@ def _unpack_disp_kwargs_(image,**kwargs):
 
     if "colorbar" in kwargs:
         colorbar=kwargs.pop("colorbar")
+        if not isinstance(colorbar,list): 
+            colorbar=[colorbar]
+            for _ in range(len(image)-1):
+                colorbar.append(colorbar[0])
+        assert len(colorbar)==len(image), "The list of limits has to be the same length as list of images, or 1"
     else:
-        colorbar="on"
-
+        colorbar=["on"]*len(image)
+        
     if "filename" in kwargs:
         filename=kwargs.pop("filename")
     else:
